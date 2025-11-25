@@ -22,7 +22,7 @@ Route::post('/logout', [LogoutController::class, 'logout']);
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
-        $products = Product::take(10)->get();
+        $products = Product::latest()->take(10)->get();
         return Inertia::render('dashboard', [
             'products' => $products,
         ]);

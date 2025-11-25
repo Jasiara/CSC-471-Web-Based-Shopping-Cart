@@ -71,6 +71,14 @@ export default function Profile({ user, orders }: { user: User; orders: Order[] 
         e.preventDefault();
         productForm.post('/products', {
             forceFormData: true,
+            onSuccess: () => {
+                productForm.reset();
+                alert('Product posted successfully!');
+                router.visit('/dashboard');
+            },
+            onError: (errorBag) => {
+                console.error('Product submission failed', errorBag);
+            },
         });
     };
 
