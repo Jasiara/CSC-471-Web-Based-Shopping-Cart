@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Order;
+use App\Models\Product;
 
 class UserProfileController extends Controller
 {
@@ -18,9 +19,14 @@ class UserProfileController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        $products = Product::where('user_id', $request->user()->id)
+            ->orderByDesc('created_at')
+            ->get();
+
         return Inertia::render('profile', [
             'user' => $request->user(),
             'orders' => $orders,
+            'products' => $products,
         ]);
     }
 

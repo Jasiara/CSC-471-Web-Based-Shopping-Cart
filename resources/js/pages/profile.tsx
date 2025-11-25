@@ -1,4 +1,5 @@
 import { Head, useForm, router } from '@inertiajs/react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,7 +36,17 @@ interface Order {
     items: OrderItem[];
 }
 
-export default function Profile({ user, orders }: { user: User; orders: Order[] }) {
+interface UserProduct {
+    product_id: number;
+    name: string;
+    description?: string;
+    price: number | string;
+    category?: string;
+    stock_quantity: number;
+    image_url?: string;
+}
+
+export default function Profile({ user, orders, products }: { user: User; orders: Order[]; products: UserProduct[] }) {
     const profileForm = useForm({
         email: user.email,
         phone: user.phone || '',
@@ -43,6 +54,17 @@ export default function Profile({ user, orders }: { user: User; orders: Order[] 
     });
 
     const productForm = useForm({
+        name: '',
+        description: '',
+        price: '',
+        category: '',
+        stock_quantity: '',
+        image: null as File | null,
+    });
+
+    const [editingProduct, setEditingProduct] = useState<UserProduct | null>(null);
+
+    const productEditForm = useForm({
         name: '',
         description: '',
         price: '',
@@ -74,10 +96,54 @@ export default function Profile({ user, orders }: { user: User; orders: Order[] 
             onSuccess: () => {
                 productForm.reset();
                 alert('Product posted successfully!');
-                router.visit('/dashboard');
+                router.visit('/profile');
             },
             onError: (errorBag) => {
                 console.error('Product submission failed', errorBag);
+            },
+        });
+    };
+
+    const beginEditingProduct = (product: UserProduct) => {
+        setEditingProduct(product);
+        productEditForm.setData({
+            name: product.name,
+            description: product.description || '',
+            price: (typeof product.price === 'string' ? product.price : product.price.toString()),
+            category: product.category || '',
+            stock_quantity: product.stock_quantity.toString(),
+            image: null,
+        });
+    };
+
+    const cancelEditingProduct = () => {
+        setEditingProduct(null);
+        productEditForm.reset();
+    };
+
+    const handleProductUpdate = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingProduct) {
+            return;
+        }
+
+        productEditForm.transform((data) => ({
+            ...data,
+            _method: 'put',
+        }));
+
+        productEditForm.post(`/products/${editingProduct.product_id}`, {
+            forceFormData: true,
+            onSuccess: () => {
+                alert('Product updated successfully!');
+                cancelEditingProduct();
+                router.visit('/profile');
+            },
+            onError: (errorBag: Record<string, string>) => {
+                console.error('Product update failed', errorBag);
+            },
+            onFinish: () => {
+                productEditForm.transform((data) => data);
             },
         });
     };
@@ -374,6 +440,220 @@ export default function Profile({ user, orders }: { user: User; orders: Order[] 
                             </Button>
                         </form>
                     </div>
+                </div>
+
+                {/* User Products Section */}
+                <div className="mx-auto w-full max-w-6xl mt-8">
+                    <h2 className="mb-6 text-2xl font-semibold text-gray-800">
+                        My Products
+                    </h2>
+                    {products.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="bg-white p-6 rounded-lg shadow-md">
+                                <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                                    Listings
+                                </h3>
+                                <div className="space-y-4">
+                                    {products.map((product) => (
+                                        <div
+                                            key={product.product_id}
+                                            className="border border-gray-200 rounded-lg p-4 flex flex-col gap-2"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <p className="text-lg font-semibold text-gray-900">
+                                                        {product.name}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">
+                                                        SKU #{product.product_id}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => beginEditingProduct(product)}
+                                                    className="text-indigo-600 hover:text-indigo-800 font-semibold text-sm"
+                                                >
+                                                    Edit
+                                                </button>
+                                            </div>
+                                            {product.category && (
+                                                <p className="text-sm text-gray-600">
+                                                    Category: {product.category}
+                                                </p>
+                                            )}
+                                            <p className="text-sm text-gray-600">
+                                                Stock: {product.stock_quantity}
+                                            </p>
+                                            <p className="text-sm font-semibold text-indigo-600">
+                                                ${
+                                                    typeof product.price === 'string'
+                                                        ? parseFloat(product.price).toFixed(2)
+                                                        : product.price.toFixed(2)
+                                                }
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-lg shadow-md">
+                                <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                                    {editingProduct ? 'Edit Product' : 'Select a product to edit'}
+                                </h3>
+                                {editingProduct ? (
+                                    <form onSubmit={handleProductUpdate} className="flex flex-col gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="edit-name">Product Name *</Label>
+                                            <Input
+                                                id="edit-name"
+                                                type="text"
+                                                required
+                                                value={productEditForm.data.name}
+                                                onChange={(e) =>
+                                                    productEditForm.setData('name', e.target.value)
+                                                }
+                                                placeholder="Enter product name"
+                                            />
+                                            {productEditForm.errors.name && (
+                                                <p className="text-sm text-red-600">
+                                                    {productEditForm.errors.name}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="edit-description">Description</Label>
+                                            <textarea
+                                                id="edit-description"
+                                                value={productEditForm.data.description}
+                                                onChange={(e) =>
+                                                    productEditForm.setData('description', e.target.value)
+                                                }
+                                                placeholder="Describe your product"
+                                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600"
+                                                rows={3}
+                                            />
+                                            {productEditForm.errors.description && (
+                                                <p className="text-sm text-red-600">
+                                                    {productEditForm.errors.description}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="edit-price">Price ($) *</Label>
+                                            <Input
+                                                id="edit-price"
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                required
+                                                value={productEditForm.data.price}
+                                                onChange={(e) =>
+                                                    productEditForm.setData('price', e.target.value)
+                                                }
+                                                placeholder="0.00"
+                                            />
+                                            {productEditForm.errors.price && (
+                                                <p className="text-sm text-red-600">
+                                                    {productEditForm.errors.price}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="edit-category">Category</Label>
+                                            <Input
+                                                id="edit-category"
+                                                type="text"
+                                                value={productEditForm.data.category}
+                                                onChange={(e) =>
+                                                    productEditForm.setData('category', e.target.value)
+                                                }
+                                                placeholder="e.g., Electronics, Fashion"
+                                            />
+                                            {productEditForm.errors.category && (
+                                                <p className="text-sm text-red-600">
+                                                    {productEditForm.errors.category}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="edit-stock">Stock Quantity *</Label>
+                                            <Input
+                                                id="edit-stock"
+                                                type="number"
+                                                min="0"
+                                                required
+                                                value={productEditForm.data.stock_quantity}
+                                                onChange={(e) =>
+                                                    productEditForm.setData('stock_quantity', e.target.value)
+                                                }
+                                                placeholder="0"
+                                            />
+                                            {productEditForm.errors.stock_quantity && (
+                                                <p className="text-sm text-red-600">
+                                                    {productEditForm.errors.stock_quantity}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="edit-image">Update Image</Label>
+                                            <Input
+                                                id="edit-image"
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0] || null;
+                                                    productEditForm.setData('image', file);
+                                                }}
+                                            />
+                                            <p className="text-xs text-gray-500">
+                                                Leave empty to keep current image.
+                                            </p>
+                                            {productEditForm.errors.image && (
+                                                <p className="text-sm text-red-600">
+                                                    {productEditForm.errors.image}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex gap-3">
+                                            <Button
+                                                type="submit"
+                                                disabled={productEditForm.processing}
+                                                className="flex-1"
+                                            >
+                                                {productEditForm.processing && (
+                                                    <Spinner className="mr-2 h-4 w-4" />
+                                                )}
+                                                Save Changes
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                className="flex-1"
+                                                onClick={cancelEditingProduct}
+                                            >
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </form>
+                                ) : (
+                                    <p className="text-gray-600">
+                                        Select one of your products to start editing.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+                            <p className="text-gray-600">
+                                You have not posted any products yet.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Past Orders Section */}

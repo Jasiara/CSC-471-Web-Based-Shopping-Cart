@@ -7,6 +7,7 @@ use App\Http\Controllers\ProductDetailController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\LogoutController;
 use App\Models\Product;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -22,7 +23,12 @@ Route::post('/logout', [LogoutController::class, 'logout']);
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', function () {
-        $products = Product::latest()->take(10)->get();
+        $products = Product::when(Auth::check(), function ($query) {
+            $query->where(function ($inner) {
+                $inner->whereNull('user_id')
+                    ->orWhere('user_id', '!=', Auth::id());
+            });
+        })->latest()->take(10)->get();
         return Inertia::render('dashboard', [
             'products' => $products,
         ]);
@@ -31,6 +37,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('profile', [UserProfileController::class, 'show'])->name('profile');
     Route::post('profile', [UserProfileController::class, 'update']);
     Route::post('products', [ProductController::class, 'store'])->name('products.store');
+    Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
 
     Route::get('products/{product}', [ProductDetailController::class, 'show'])->name('products.show');
 
