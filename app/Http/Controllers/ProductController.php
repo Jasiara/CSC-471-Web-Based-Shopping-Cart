@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -58,5 +58,22 @@ class ProductController extends Controller
         $product->update($validated);
 
         return redirect()->route('profile')->with('success', 'Product updated successfully!');
+    }
+
+    /**
+     * Remove a product owned by the authenticated user.
+     */
+    public function destroy(Request $request, Product $product)
+    {
+        abort_if($product->user_id !== $request->user()->id, 403);
+
+        if ($product->image_url) {
+            $relativePath = ltrim(str_replace('/storage/', '', $product->image_url), '/');
+            Storage::disk('public')->delete($relativePath);
+        }
+
+        $product->delete();
+
+        return redirect()->route('profile')->with('success', 'Product deleted successfully!');
     }
 }

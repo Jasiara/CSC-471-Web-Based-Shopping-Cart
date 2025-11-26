@@ -1,5 +1,6 @@
 import { Head, useForm, router } from '@inertiajs/react';
 import { useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,6 +64,7 @@ export default function Profile({ user, orders, products }: { user: User; orders
     });
 
     const [editingProduct, setEditingProduct] = useState<UserProduct | null>(null);
+    const [deletingProductId, setDeletingProductId] = useState<number | null>(null);
 
     const productEditForm = useForm({
         name: '',
@@ -119,6 +121,30 @@ export default function Profile({ user, orders, products }: { user: User; orders
     const cancelEditingProduct = () => {
         setEditingProduct(null);
         productEditForm.reset();
+    };
+
+    const handleDeleteProduct = (productId: number) => {
+        if (!window.confirm('Delete this product listing?')) {
+            return;
+        }
+
+        setDeletingProductId(productId);
+
+        router.delete(`/products/${productId}`, {
+            onSuccess: () => {
+                alert('Product deleted successfully!');
+                if (editingProduct?.product_id === productId) {
+                    cancelEditingProduct();
+                }
+                router.visit('/profile');
+            },
+            onError: (errors) => {
+                console.error('Product delete failed', errors);
+            },
+            onFinish: () => {
+                setDeletingProductId(null);
+            },
+        });
     };
 
     const handleProductUpdate = (e: React.FormEvent) => {
@@ -468,12 +494,27 @@ export default function Profile({ user, orders, products }: { user: User; orders
                                                         SKU #{product.product_id}
                                                     </p>
                                                 </div>
-                                                <button
-                                                    onClick={() => beginEditingProduct(product)}
-                                                    className="text-indigo-600 hover:text-indigo-800 font-semibold text-sm"
-                                                >
-                                                    Edit
-                                                </button>
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={() => beginEditingProduct(product)}
+                                                        className="text-indigo-600 hover:text-indigo-800 font-semibold text-sm"
+                                                    >
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteProduct(product.product_id)}
+                                                        disabled={deletingProductId === product.product_id}
+                                                        className="text-red-600 hover:text-red-700 disabled:opacity-50"
+                                                        aria-label="Delete product"
+                                                    >
+                                                        {deletingProductId === product.product_id ? (
+                                                            <Spinner className="h-4 w-4" />
+                                                        ) : (
+                                                            <Trash2 className="h-5 w-5" />
+                                                        )}
+                                                    </button>
+                                                </div>
                                             </div>
                                             {product.category && (
                                                 <p className="text-sm text-gray-600">
